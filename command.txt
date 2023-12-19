@@ -1,0 +1,108 @@
+#!/bin/bash
+
+# Function to display the command's manual page
+show_manual() {
+    echo "internsctl - Custom Linux command for operations"
+    echo
+    echo "Usage: internsctl [COMMAND] [OPTIONS]"
+    echo
+    echo "Commands:"
+    echo "  cpu getinfo        Display CPU information"
+    echo "  memory getinfo     Display memory information"
+    echo "  user create        Create a new user"
+    echo "  user list          List all regular users"
+    echo "  user list --sudo-only List users with sudo permissions"
+    echo "  file getinfo       Get information about a file"
+    echo
+    echo "Options:"
+    echo "  --help             Display this help message"
+    echo "  --version          Display command version"
+    echo
+    echo "Advanced Options for 'file getinfo':"
+    echo "  --size, -s         Print file size"
+    echo "  --permissions, -p  Print file permissions"
+    echo "  --owner, -o        Print file owner"
+    echo "  --last-modified, -m Print last modified time"
+}
+
+# Function to display command version
+show_version() {
+    echo "internsctl v0.1.0"
+}
+
+# Function to get CPU information
+get_cpu_info() {
+    lscpu
+}
+
+# Function to get memory information
+get_memory_info() {
+    free
+}
+
+# Function to create a new user
+create_user() {
+    if [ -z "$1" ]; then
+        echo "Usage: internsctl user create <username>"
+    else
+        sudo useradd -m "$1"
+        echo "User '$1' created successfully."
+    fi
+}
+
+# Function to list users
+list_users() {
+    if [ "$1" == "--sudo-only" ]; then
+        grep -Po '^sudo.+:\K.*$' /etc/group | tr ',' '\n'
+    else
+        cut -d: -f1 /etc/passwd
+    fi
+}
+
+# Function to get file information
+get_file_info() {
+    local file=$1
+    local size_option=false
+    local permissions_option=false
+    local owner_option=false
+    local last_modified_option=false
+
+    while [ "$#" -gt 1 ]; do
+        case "$1" in
+            --size | -s) size_option=true ;;
+            --permissions | -p) permissions_option=true ;;
+            --owner | -o) owner_option=true ;;
+            --last-modified | -m) last_modified_option=true ;;
+            *) echo "Invalid option: $1" ;;
+        esac
+        shift
+    done
+
+    if [ ! -e "$file" ]; then
+        echo "File not found: $file"
+        exit 1
+    fi
+
+    if [ "$size_option" = true ]; then
+        stat --format="%s" "$file"
+    elif [ "$permissions_option" = true ]; then
+        stat --format="%A" "$file"
+    elif [ "$owner_option" = true ]; then
+        stat --format="%U" "$file"
+    elif [ "$last_modified_option" = true ]; then
+        stat --format="%y" "$file"
+    else
+        stat "$file"
+    fi
+}
+
+# Main script logic
+case "$1" in
+    cpu) get_cpu_info ;;
+    memory) get_memory_info ;;
+    user) shift && create_user "$@" ;;
+    file) shift && get_file_info "$@" ;;
+    --help) show_manual ;;
+    --version) show_version ;;
+    *) echo "Invalid command. Use 'internsctl --help' for usage guidelines." ;;
+esac
